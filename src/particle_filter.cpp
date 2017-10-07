@@ -72,15 +72,15 @@ Particle p = particles.at(i);
 theta = p.theta;
 double thetanorm = p.theta;
 
-if(fabs(yaw_rate)>0)
+if(fabs(yaw_rate)>0.0001)
 {
 x = p.x+velocity/yaw_rate*(sin(thetanorm+yaw_rate*delta_t)-sin(thetanorm));
 y = p.y+velocity/yaw_rate*(cos(thetanorm)-cos(thetanorm+yaw_rate*delta_t));
 }
 else
 {
-x = p.x + velocity*cos(theta);
-y = p.y + velocity*sin(theta);
+x = p.x + velocity*cos(theta+yaw_rate)*delta_t;
+y = p.y + velocity*sin(theta+yaw_rate)*delta_t;
 }
 theta = theta+yaw_rate*delta_t;
 normal_distribution<double> dist_x(x, std_pos[0]);
