@@ -21,6 +21,10 @@ struct Particle {
 	std::vector<int> associations;
 	std::vector<double> sense_x;
 	std::vector<double> sense_y;
+bool operator < (const Particle& p) const
+    {
+        return (id < p.id);
+    }
 };
 
 

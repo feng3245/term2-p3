@@ -25,7 +25,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 default_random_engine gen;
-num_particles = 150;
+num_particles = 8;
 particles = std::vector<Particle>(num_particles);
 int i = 0;
 
@@ -61,10 +61,10 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 int i = 0;
 default_random_engine gen;
-normal_distribution<double> dist_v(velocity, 10.05);
+normal_distribution<double> dist_v(velocity, 0.05);
 //yaw_rate = atan2(sin(yaw_rate), cos(yaw_rate));
 
-normal_distribution<double> dist_yaw_rate(yaw_rate,5.05);
+normal_distribution<double> dist_yaw_rate(yaw_rate, 0.05);
 
 while(i<num_particles)
 {
