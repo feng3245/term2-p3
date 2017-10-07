@@ -25,7 +25,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 default_random_engine gen;
-num_particles = 1000;
+num_particles = 150;
 particles = std::vector<Particle>(num_particles);
 int i = 0;
 
@@ -40,13 +40,14 @@ normal_distribution<double> dist_theta(theta, std[2]);
 while(i<num_particles)
 {
 
-Particle p = particles.at(i);
+Particle p = Particle();
 
 p.id = i;
 p.x = dist_x(gen);
 p.y = dist_y(gen);
 p.theta = dist_theta(gen);
 p.weight = 1.0;
+particles.at(i) = p;
 i++;
 }
 is_initialized = true;
@@ -60,6 +61,10 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 int i = 0;
 default_random_engine gen;
+normal_distribution<double> dist_v(velocity, 10.05);
+//yaw_rate = atan2(sin(yaw_rate), cos(yaw_rate));
+
+normal_distribution<double> dist_yaw_rate(yaw_rate,5.05);
 
 while(i<num_particles)
 {
@@ -67,17 +72,22 @@ while(i<num_particles)
 double x, y, theta;
 
 Particle p = particles.at(i);
+theta = p.theta;
+double thetanorm = p.theta;
+
+yaw_rate = dist_yaw_rate(gen);
+velocity = dist_v(gen);
 if(yaw_rate!=0)
 {
-x = p.x+velocity/yaw_rate*(sin(p.theta+yaw_rate*delta_t)-sin(p.theta));
-y = p.y+velocity/yaw_rate*(cos(p.theta)-cos(p.theta+yaw_rate*delta_t));
+x = p.x+velocity/yaw_rate*(sin(thetanorm+yaw_rate*delta_t)-sin(thetanorm));
+y = p.y+velocity/yaw_rate*(cos(thetanorm)-cos(thetanorm+yaw_rate*delta_t));
 }
 else
 {
-x = p.x + velocity*sin(p.theta);
-y = p.y + velocity*cos(p.theta);
+x = p.x + velocity*cos(theta);
+y = p.y + velocity*sin(theta);
 }
-theta = p.theta+yaw_rate*delta_t;
+theta = theta+yaw_rate*delta_t;
 normal_distribution<double> dist_x(x, std_pos[0]);
 
 normal_distribution<double> dist_y(y, std_pos[1]);
@@ -102,11 +112,12 @@ void ParticleFilter::dataAssociation(std::vector<Map::single_landmark_s> predict
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
 int i =0;
-int j=0;
 for(i=0;i<observations.size();i++)
 {
 LandmarkObs observation = observations.at(i);
 double distance = -1;
+int j=0;
+double predictedx, predictedy;
 for(j=0; j<predicted.size();j++)
 {
 //std::cout << "observation x "<< observation.x << " observation y "<< observation.y << std::endl;
@@ -115,7 +126,8 @@ for(j=0; j<predicted.size();j++)
 double tempdistance = pow(observations.at(i).x - predicted.at(j).x_f,2)+pow(observations.at(i).y - predicted.at(j).y_f,2);
 if(distance <0 || tempdistance < distance)
 {
-
+predictedx = predicted.at(j).x_f;
+predictedy = predicted.at(j).y_f;
 distance = tempdistance;
 observation.id = predicted.at(j).id_i;
 //std::cout << "distance is " << distance << "id is "<< observation.id <<endl;
@@ -124,7 +136,8 @@ observation.id = predicted.at(j).id_i;
 }
 observations.at(i) = observation;
 //std::cout << "obs id " << observations.at(i).id << endl;
-
+//cout << " assocations Landmark " << observation.id << " obs x,y "<< observation.x << observation.y << " landmark x,y " <<predictedx << " " << predictedy << endl << endl;
+ 
 }
 }
 
@@ -153,14 +166,19 @@ std::vector<double> sense_y = vector<double>();
 for(i =0 ;i < observations.size(); i++ )
 {
 double theta = particles.at(j).theta;
-double x_map = particles.at(j).x+ (cos(theta)*observations.at(i).x)-(sin(theta)*observations.at(i).y);
-double y_map = particles.at(j).y+(sin(theta)*observations.at(i).x)+(cos(theta)*observations.at(i).y);
+double xpart = particles.at(j).x;
+double ypart = particles.at(j).y;
+double obsx = observations.at(i).x;
+double obsy = observations.at(i).y;
+double x_map = xpart+ (cos(theta)*obsx)-(sin(theta)*obsy);
+double y_map = ypart +(sin(theta)*obsx)+(cos(theta)*obsy);
 sense_x.push_back(x_map);
 sense_y.push_back(y_map);
 LandmarkObs translatedObservation = LandmarkObs();
 translatedObservation.x = x_map;
 translatedObservation.y = y_map;
 translatedObservations.push_back(translatedObservation);
+//cout << "Transform obs x,y "<< obsx << " " << obsy << " Tobs x,y "<< x_map << " " <<y_map << endl;
 }
 dataAssociation(map_landmarks.landmark_list,translatedObservations);
 int k = 0;
@@ -178,7 +196,7 @@ for(l =0; l< particles.size(); l++)
 {
 	Particle p = particles.at(l);
 	int m = 0;
-	long double finalweight = 1.0;
+	double finalweight = 1.0;
 	for(m = 0; m < p.sense_x.size(); m++)
 	{
 		double x_obs = p.sense_x.at(m);
@@ -205,7 +223,7 @@ for(l =0; l< particles.size(); l++)
 
 	}
 	p.weight = finalweight;
-
+	particles[l] = p;
 //std::cout << "final weight is" << finalweight <<endl;
 }
 }
@@ -217,6 +235,7 @@ void ParticleFilter::resample() {
 std::vector<Particle> resampledParticles = std::vector<Particle>(num_particles);
 int i =0;
 double totalprob = 0;
+
 for(i =0; i< num_particles; i++)
 {
 	totalprob += particles.at(i).weight;
@@ -232,18 +251,18 @@ for (k = 0; k < num_particles; k++)
 {
 	wheelend = wheelend+wnorm.at(k);
 	wheeledw.at(k) = wheelend;
+	resampledParticles.at(k) = particles.at(k);
 }
 int l = 0;
 for(l = 0; l < num_particles; l++)
 {
-float prob = ((float) rand()) / (float) RAND_MAX;
+double prob = ((double) rand()) / (double) RAND_MAX;
 int m = 0;
 while(wheeledw.at(m)<prob)
 m++;
 
-resampledParticles.at(l) = particles.at(m);
+particles.at(l) = resampledParticles.at(m);
 }
-particles = resampledParticles;
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
